@@ -120,7 +120,7 @@ bfsFold graph acc queue fv fr = bfsFold' graph acc queue fv fr S.empty
 bfsFold' :: (Graph g a) => g a -> b -> [a]           -- source nodes
                                     -> (a -> b -> b) -- visit node
                                     -> (a -> b -> b) -- revisit node
-                                    -> S.Set a   -- visited nodes
+                                    -> S.Set a       -- visited nodes
                                     -> b
 bfsFold' graph acc queue fv fr vSet =
   case queue of
@@ -129,9 +129,56 @@ bfsFold' graph acc queue fv fr vSet =
                 True  -> bfsFold' graph (fr x acc) xs fv fr vSet
                 False -> bfsFold' graph (fv x acc) (xs ++ (neighbors graph x)) fv fr (S.insert x vSet)
 
-
+-- Returns list of nodes visited in bfs order
 bfs :: (Graph g a) => g a -> [a] -> [a]
 bfs g sx = bfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
+
+
+------------------------------------------------------------
+-- Algorithm 2: Depth first search
+------------------------------------------------------------
+
+dfsFold :: (Graph g a) => g a -> b -> [a]           -- source nodes
+                                   -> (a -> b -> b) -- visit node
+                                   -> (a -> b -> b) -- revisit node
+                                   -> b
+dfsFold graph acc queue fv fr = dfsFold' graph acc queue fv fr S.empty
+
+dfsFold' :: (Graph g a) => g a -> b -> [a]           -- source nodes
+                                    -> (a -> b -> b) -- visit node
+                                    -> (a -> b -> b) -- revisit node
+                                    -> S.Set a       -- visited nodes
+                                    -> b
+dfsFold' graph acc queue fv fr vSet =
+  case queue of
+    []     -> acc
+    (x:xs) -> case (S.member x vSet) of
+                True  -> dfsFold' graph (fr x acc) xs fv fr vSet
+                False -> dfsFold' graph (fv x acc) ((neighbors graph x) ++ xs) fv fr (S.insert x vSet)
+
+-- Returns list of nodes visited in dfs order
+dfs :: (Graph g a) => g a -> [a] -> [a]
+dfs g sx = dfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
+
+
+------------------------------------------------------------
+-- Algorithm 3: Topological Sort
+------------------------------------------------------------
+
+--A topological sort of the graph. The order is partially specified by the condition
+-- that a vertex i precedes j whenever j is reachable from i but not vice versa.
+topologicalSort :: (Graph g a) => g a -> [a]
+topologicalSort g = dfs g (nodes g)
+
+
+------------------------------------------------------------
+-- Algorithm 4: Strongly Connected Components
+------------------------------------------------------------
+
+--The strongly connected components of a graph.
+--scc :: (Graph g a) => g a -> [g a]
+--scc g = dfs (transpose g) (dfs g (nodes g))
+
 
 
 
@@ -156,9 +203,7 @@ topSort = undefined
 components :: (Graph g a) => g a -> [g a] --since we do not have tree rep, else [Tree t a]
 components = undefined
 
---The strongly connected components of a graph.
-scc :: (Graph g a) => g a -> [g a]
-scc = undefined
+
 
 --The biconnected components of a graph. An undirected graph is
 -- biconnected if the deletion of any vertex leaves it connected.
