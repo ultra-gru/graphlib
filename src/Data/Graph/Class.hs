@@ -46,6 +46,9 @@ class (Eq a, Ord a) => Graph g a where
     createFromNodes :: [a] -> g a
 
     neighbors :: g a -> a -> [a]
+    singleton :: a -> g a
+    map :: (Eq b, Ord b) => (a -> b) -> g a -> g b
+    transpose :: g a -> g a
 
 
 data DGraph a = DGraph (NodeIndex a) Vertex AdjacencyList
@@ -61,7 +64,7 @@ instance (Eq a, Ord a) => Graph DGraph a where
 
     edges (DGraph nodeIndex _ adjList) = M.foldrWithKey f [] adjList
         where f vertex neighbours xs = (fx vertex neighbours) ++ xs
-              fx vertex neighbours = map (\n -> Edge (nodeIndex B.! vertex, nodeIndex B.! n)) (S.elems neighbours)
+              fx vertex neighbours = Prelude.map (\n -> Edge (nodeIndex B.! vertex, nodeIndex B.! n)) (S.elems neighbours)
 
     createEdge g (Edge (src, dest)) =
                 (DGraph nodeIndex vertexNo adjList')
@@ -99,6 +102,13 @@ instance (Eq a, Ord a) => Graph DGraph a where
                                  Nothing -> []
                                  Just s  -> [(nM B.! e) | e <- S.elems s]
 
+    singleton a = createNode empty a
+
+    map f (DGraph n v a) = (DGraph (B.mapR f n) v a)
+
+    transpose g@(DGraph n v a) = (DGraph n v a')
+        where
+        a' = foldr (\(Edge (src, dest)) m -> M.insertWith S.union (n B.!> dest) (S.singleton (n B.!> src)) m) M.empty (edges g)
 
 
 -------------------------------------------------------------------------
@@ -131,7 +141,11 @@ bfsFold' graph acc queue fv fr vSet =
 
 -- Returns list of nodes visited in bfs order
 bfs :: (Graph g a) => g a -> [a] -> [a]
-bfs g sx = bfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
+bfs g sx = bfsFold g [] sx (\x acc -> acc ++ [x]) (\_ -> id)
+
+-- A list of nodes reachable in BFS order from a given node.
+reachableBFS :: (Graph g a) => g a -> a -> [a]
+reachableBFS g x = bfs g [x]
 
 
 ------------------------------------------------------------
@@ -156,10 +170,24 @@ dfsFold' graph acc queue fv fr vSet =
                 True  -> dfsFold' graph (fr x acc) xs fv fr vSet
                 False -> dfsFold' graph (fv x acc) ((neighbors graph x) ++ xs) fv fr (S.insert x vSet)
 
--- Returns list of nodes visited in dfs order
+
+-- Returns list of nodes visited in DFS
 dfs :: (Graph g a) => g a -> [a] -> [a]
 dfs g sx = dfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
 
+-- Returns list of nodes visited in preorder
+preordering :: (Graph g a) => g a -> [a] -> [a]
+preordering = dfs
+
+-- Returns list of nodes visited in preorder
+postordering :: (Graph g a) => g a -> [a] -> [a]
+postordering = undefined
+--postordering = dfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
+
+
+-- A list of nodes reachable in DFS order from a given node.
+reachableDFS :: (Graph g a) => g a -> a -> [a]
+reachableDFS g x = dfs g [x]
 
 ------------------------------------------------------------
 -- Algorithm 3: Topological Sort
@@ -172,31 +200,63 @@ topologicalSort g = dfs g (nodes g)
 
 
 ------------------------------------------------------------
--- Algorithm 4: Strongly Connected Components
+-- Algorithm 4: Graph Cycles
+------------------------------------------------------------
+
+-- Returns True if the graph is acyclic, False otherwise
+acyclic :: (Graph g a) => g a -> Bool
+acyclic g = bfsFold g True (nodes g) (\_ -> id) (\_ _ -> False)
+
+isTree :: (Graph g a) => g a -> Bool
+isTree = undefined --acyclic and components == 1?
+
+
+-- Returns True if the graph is bipartite, False otherwise
+bipartite :: (Graph g a) => g a -> Bool
+bipartite g = case (dfsFold g ini (nodes g) fv fr) of
+                Nothing -> False
+                Just _  -> True
+        where
+          --ini :: (M.Map a Int, Int)
+          ini = Just (M.empty, 0)
+
+          --fv :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
+          fv = \n acc -> case acc of
+                           Nothing      -> Nothing
+                           Just (cM, c) -> Just (M.insert n c cM, 1- c)
+
+          --fr :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
+          fr = \n acc -> case acc of
+                           Nothing          -> Nothing
+                           Just acc@(cM, c) -> if (cM M.! n == c) then Just acc else Nothing
+
+-- bipartite g = case (dfsFold g ini (nodes g) fv fr) of
+--                 (b,_,_) -> b
+--         where
+--           ini :: (Bool, M.Map a Int, Int)
+--           ini = (True, M.empty, 0)
+--
+--           --fv :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
+--           fv = \n acc@(b, cM, c) -> if b then (b,(M.insert n c cM), 1- c) else acc
+--
+--           --fr :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
+--           fr = \n (b, cM, c) -> (b && (cM M.! n == c), cM, 1- c)
+
+
+------------------------------------------------------------
+-- Algorithm 5: Strongly Connected Components
 ------------------------------------------------------------
 
 --The strongly connected components of a graph.
---scc :: (Graph g a) => g a -> [g a]
---scc g = dfs (transpose g) (dfs g (nodes g))
+scc :: (Graph g a) => g a -> [g a]
+scc = undefined
+--scc g = dfs g (reverse (dfs (transpose g) (nodes g)))
 
-
-
-
--- A list of nodes reachable from a given node.
-reachable :: (Graph g a) => g a -> a -> [a]
-reachable g x = bfsFold g [] [x] (\n acc -> n:acc) (\_ -> id)
 
 --Is the second vertex reachable from the first?
 path :: (Graph g a) => g a -> a -> a -> Bool
 path g x y = bfsFold g False [x] (\n acc -> acc || n == y) (\_ -> id)
 
-isCyclic :: (Graph g a) => g a -> [a] -> Bool
-isCyclic g sx = bfsFold g False sx (\_ -> id) (\_ _ -> True)
-
---A topological sort of the graph. The order is partially specified by the condition
--- that a vertex i precedes j whenever j is reachable from i but not vice versa.
-topSort :: (Graph g a) => g a -> [a]
-topSort = undefined
 
 --The connected components of a graph. Two vertices are connected if there is a path
 -- between them, traversing edges in either direction.
