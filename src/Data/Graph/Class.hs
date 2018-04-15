@@ -181,8 +181,7 @@ preordering = dfs
 
 -- Returns list of nodes visited in preorder
 postordering :: (Graph g a) => g a -> [a] -> [a]
-postordering = undefined
---postordering = dfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
+postordering g sx = dfsFold g [] sx (\x acc -> x:acc) (\_ acc -> acc)
 
 
 -- A list of nodes reachable in DFS order from a given node.
@@ -196,7 +195,7 @@ reachableDFS g x = dfs g [x]
 --A topological sort of the graph. The order is partially specified by the condition
 -- that a vertex i precedes j whenever j is reachable from i but not vice versa.
 topologicalSort :: (Graph g a) => g a -> [a]
-topologicalSort g = dfs g (nodes g)
+topologicalSort g = reverse (postordering g (nodes g))
 
 
 ------------------------------------------------------------
@@ -230,18 +229,6 @@ bipartite g = case (dfsFold g ini (nodes g) fv fr) of
                            Nothing          -> Nothing
                            Just acc@(cM, c) -> if (cM M.! n == c) then Just acc else Nothing
 
--- bipartite g = case (dfsFold g ini (nodes g) fv fr) of
---                 (b,_,_) -> b
---         where
---           ini :: (Bool, M.Map a Int, Int)
---           ini = (True, M.empty, 0)
---
---           --fv :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
---           fv = \n acc@(b, cM, c) -> if b then (b,(M.insert n c cM), 1- c) else acc
---
---           --fr :: (Ord a) => a -> (Bool, M.Map a Int, Int) -> (Bool, M.Map a Int, Int)
---           fr = \n (b, cM, c) -> (b && (cM M.! n == c), cM, 1- c)
-
 
 ------------------------------------------------------------
 -- Algorithm 5: Strongly Connected Components
@@ -269,21 +256,6 @@ components = undefined
 -- biconnected if the deletion of any vertex leaves it connected.
 bcc :: (Graph g a) => g a -> [g a]
 bcc = undefined
-
---The graph obtained by reversing all edges.
-transposeG :: (Graph g a) => g a -> g a
-transposeG = undefined
-
-
---How to do this?
-----------------------------------------------------------------
---A table of the count of edges from each node.
---outdegree :: Graph -> Table Int
-
---indegree :: Graph -> Table Int
---A table of the count of edges into each node.
-
-
 
 
 main :: IO ()
