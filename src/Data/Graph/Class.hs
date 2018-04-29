@@ -58,6 +58,7 @@ class (Eq a, Ord a) => Graph g a where
 
 
 data DGraph a = DGraph (NodeIndex a) Vertex AdjacencyList
+        deriving (Show)
 
 instance (Eq a, Ord a) => Graph DGraph a where
     empty = DGraph B.empty 0 M.empty
