@@ -14,6 +14,8 @@ commentary with @some markup@.
 -}
 module Data.Graph.Class where
 
+import Data.List (minimumBy, delete)
+import Data.Ord (comparing)
 import qualified Data.Map as M
 import qualified Data.Bimap as B
 import qualified Data.Set as S
@@ -289,6 +291,21 @@ components = undefined
 -- biconnected if the deletion of any vertex leaves it connected.
 bcc :: (Graph g a) => g a -> [g a]
 bcc = undefined
+
+------------------------------------------------------------
+-- Algorithm 7: Minimum Spanning Tree
+------------------------------------------------------------
+
+prim :: (Graph g a, Ord b) => g a -> (a -> a -> b) -> [(a,a,b)]
+prim g w = prim' [n] ns []
+    where
+      (n:ns) = nodes g
+      --prim' :: [a] -> [a] -> [(a,a,b)] -> [(a,a,b)]
+      prim' cx [] mst = mst
+      prim' cx nx mst = prim' (n2:nx) (delete n2 nx) (e:mst)
+          where
+            es            = [(n1, n2, (w n1 n2)) | n1 <- nx, n2 <- (neighbors g n1)]
+            e@(n1, n2, d) = minimumBy (comparing (\(_,_,d) -> d)) es
 
 
 main :: IO ()
