@@ -24,6 +24,9 @@ dependencies:
 - bimap
 - containers
 - fingertree-psqueue
+- megaparsec
+- text
+- hxt
 
 library:
   source-dirs: src
