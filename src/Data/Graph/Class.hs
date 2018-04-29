@@ -305,7 +305,7 @@ prim g w = prim' [n] ns []
       prim' cx [] mst = mst
       prim' cx nx mst = prim' (n2:nx) (delete n2 nx) (e:mst)
           where
-            es            = [(n1, n2, (w n1 n2)) | n1 <- nx, n2 <- (neighbors g n1)]
+            es            = [(n1, n2, (w n1 n2)) | n1 <- cx, n2 <- (neighbors g n1), elem n2 nx]
             e@(n1, n2, d) = minimumBy (comparing (\(_,_,d) -> d)) es
 
 
