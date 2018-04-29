@@ -17,6 +17,7 @@ module Data.Graph.Class where
 import qualified Data.Map as M
 import qualified Data.Bimap as B
 import qualified Data.Set as S
+import qualified Data.FingerTree.PSQueue as PSQ
 import Control.Arrow ((&&&))
 
 type Vertex = Int
@@ -29,11 +30,12 @@ data Edge a = Edge (a,a)
 class (Eq a, Ord a) => Graph g a where
     empty :: g a
 
+    --TODO: vertex, node, vertices functions to be removed
     vertex :: g a -> a -> Vertex
     node :: g a -> Vertex -> a
+    vertices :: g a -> [Vertex]
 
     nodes :: g a -> [a]
-    vertices :: g a -> [Vertex]
     edges :: g a -> [Edge a]
 
     createEdge :: g a -> Edge a -> g a
@@ -49,6 +51,8 @@ class (Eq a, Ord a) => Graph g a where
     singleton :: a -> g a
     map :: (Eq b, Ord b) => (a -> b) -> g a -> g b
     transpose :: g a -> g a
+    --TODO: Implement weight method in DGraph
+    weight :: g a -> a -> a -> Double
 
 
 data DGraph a = DGraph (NodeIndex a) Vertex AdjacencyList
@@ -188,8 +192,37 @@ postordering g sx = dfsFold g [] sx (\x acc -> x:acc) (\_ acc -> acc)
 reachableDFS :: (Graph g a) => g a -> a -> [a]
 reachableDFS g x = dfs g [x]
 
+
 ------------------------------------------------------------
--- Algorithm 3: Topological Sort
+-- Algorithm 3: Closest first Search
+------------------------------------------------------------
+
+dijkstra :: (Graph g a) => (a -> a -> Double) -> g a -> a -> [(a, Double)]
+dijkstra w g s = go (decrease qini s 0)
+  where
+    qini = PSQ.fromList [(n PSQ.:-> (1/0)) | n <- nodes g]
+
+    --decrease :: PSQ.PSQ k p -> k -> p -> PSQ.PSQ k p
+    decrease q k p = case (PSQ.lookup k q) of
+                       Nothing -> q
+                       Just p' -> if (p < p') then PSQ.adjust (\_-> p) k q else q
+
+    --go :: PSQ.PSQ k p -> [(k, p)]
+    go q = case (PSQ.minView q) of
+             Just (n1 PSQ.:-> d1, q') -> (n1, d1): (go (foldr (\(n, d) acc -> decrease acc n d) q' ns ))
+                 where
+                   ns = [(n2, d1 + (w n1 n2)) | n2 <- neighbors g n1]
+             Nothing              -> []
+
+
+
+-- Returns list of nodes visited in closest first order
+cfs :: (Graph g a) => g a -> a -> [a]
+cfs g s = Prelude.map fst (dijkstra (weight g) g s)
+
+
+------------------------------------------------------------
+-- Algorithm 4: Topological Sort
 ------------------------------------------------------------
 
 --A topological sort of the graph. The order is partially specified by the condition
@@ -199,7 +232,7 @@ topologicalSort g = reverse (postordering g (nodes g))
 
 
 ------------------------------------------------------------
--- Algorithm 4: Graph Cycles
+-- Algorithm 5: Graph Cycles
 ------------------------------------------------------------
 
 -- Returns True if the graph is acyclic, False otherwise
@@ -231,7 +264,7 @@ bipartite g = case (dfsFold g ini (nodes g) fv fr) of
 
 
 ------------------------------------------------------------
--- Algorithm 5: Strongly Connected Components
+-- Algorithm 6: Strongly Connected Components
 ------------------------------------------------------------
 
 --The strongly connected components of a graph.
