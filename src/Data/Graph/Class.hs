@@ -23,11 +23,8 @@ import qualified Data.FingerTree.PSQueue as PSQ
 import Control.Arrow ((&&&))
 
 type Vertex = Int
-
-type NodeIndex a   = B.Bimap Vertex a
-type AdjacencyList = M.Map Vertex (S.Set Vertex)
-
-data Edge a = Edge (a,a)
+type Weight = Double
+data Edge a = Edge (a,a) Weight
 
 class (Eq a, Ord a) => Graph g a where
     empty :: g a
@@ -54,8 +51,10 @@ class (Eq a, Ord a) => Graph g a where
     map :: (Eq b, Ord b) => (a -> b) -> g a -> g b
     transpose :: g a -> g a
     --TODO: Implement weight method in DGraph
-    weight :: g a -> a -> a -> Double
+    weight :: (Num b) => g a -> a -> a -> b
 
+type NodeIndex a   = B.Bimap Vertex a
+type AdjacencyList = M.Map Vertex (S.Set (Vertex, Weight))
 
 data DGraph a = DGraph (NodeIndex a) Vertex AdjacencyList
         deriving (Show)
@@ -71,19 +70,19 @@ instance (Eq a, Ord a) => Graph DGraph a where
 
     edges (DGraph nodeIndex _ adjList) = M.foldrWithKey f [] adjList
         where f vertex neighbours xs = (fx vertex neighbours) ++ xs
-              fx vertex neighbours = Prelude.map (\n -> Edge (nodeIndex B.! vertex, nodeIndex B.! n)) (S.elems neighbours)
+              fx vertex neighbours = Prelude.map (\(d,w) -> Edge (nodeIndex B.! vertex, nodeIndex B.! d) w) (S.elems neighbours)
 
-    createEdge g (Edge (src, dest)) =
+    createEdge g (Edge (src, dest) w) =
                 (DGraph nodeIndex vertexNo adjList')
         where (DGraph nodeIndex vertexNo adjList) = createNode (createNode g src) dest
               (src', dest')  = (nodeIndex B.!> src, nodeIndex B.!> dest)
-              adjList' = M.insertWith S.union src' (S.singleton dest') adjList
+              adjList' = M.insertWith S.union src' (S.singleton (dest', w)) adjList
 
-    deleteEdge g@(DGraph nodeIndex vertexNo adjList) (Edge (src,dest)) =
+    deleteEdge g@(DGraph nodeIndex vertexNo adjList) (Edge (src,dest) w) =
             (DGraph nodeIndex vertexNo adjList')
         where
             adjList'= case (B.lookupR src nodeIndex,  B.lookupR dest nodeIndex) of
-                            (Just src', Just dest') -> M.adjust (S.delete dest') src' adjList
+                            (Just src', Just dest') -> M.adjust (S.delete (dest', w)) src' adjList
                             _ -> adjList
 
     createNode g@(DGraph nodeIndex vertexNo adjList) n =
@@ -95,7 +94,7 @@ instance (Eq a, Ord a) => Graph DGraph a where
         case (B.lookupR n nodeIndex) of
             Nothing -> g
             Just v ->
-                (DGraph (B.delete v nodeIndex) vertexNo (M.map (S.delete v) (M.delete v adjList)))
+                (DGraph (B.delete v nodeIndex) vertexNo (M.map (S.filter (\(d, w) -> d == v)) (M.delete v adjList)))
 
     createFromEdges es = foldl createEdge empty es
 
@@ -107,7 +106,7 @@ instance (Eq a, Ord a) => Graph DGraph a where
                     Nothing -> []
                     Just v  -> case (eM M.!? v) of
                                  Nothing -> []
-                                 Just s  -> [(nM B.! e) | e <- S.elems s]
+                                 Just s  -> [(nM B.! e) | (e,w) <- S.elems s]
 
     singleton a = createNode empty a
 
@@ -115,8 +114,9 @@ instance (Eq a, Ord a) => Graph DGraph a where
 
     transpose g@(DGraph n v a) = (DGraph n v a')
         where
-        a' = foldr (\(Edge (src, dest)) m -> M.insertWith S.union (n B.!> dest) (S.singleton (n B.!> src)) m) M.empty (edges g)
+        a' = foldr (\(Edge (src, dest) w) m -> M.insertWith S.union (n B.!> dest) (S.singleton ((n B.!> src), w)) m) M.empty (edges g)
 
+    weight g s d = 1
 
 -------------------------------------------------------------------------
 --                                                                      -
