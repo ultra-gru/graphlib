@@ -21,6 +21,7 @@ import qualified Data.Bimap as B
 import qualified Data.Set as S
 import qualified Data.FingerTree.PSQueue as PSQ
 import Control.Arrow ((&&&))
+import Test.HUnit
 
 type Vertex = Int
 type Weight = Double
@@ -194,18 +195,17 @@ dfsFold' graph acc queue fv fr vSet =
                 False -> dfsFold' graph (fv x acc) ((neighbors graph x) ++ xs) fv fr (S.insert x vSet)
 
 
--- Returns list of nodes visited in DFS
+-- | Returns list of nodes visited in DFS
 dfs :: (Graph g a) => g a -> [a] -> [a]
 dfs g sx = dfsFold g [] sx (\x acc -> acc ++ [x]) (\_ acc -> acc)
 
 -- Returns list of nodes visited in preorder
-preordering :: (Graph g a) => g a -> [a] -> [a]
-preordering = dfs
+preOrd :: (Graph g a) => g a -> [a] -> [a]
+preOrd = dfs
 
--- Returns list of nodes visited in preorder
-postordering :: (Graph g a) => g a -> [a] -> [a]
-postordering g sx = dfsFold g [] sx (\x acc -> x:acc) (\_ acc -> acc)
-
+-- | Generates nodes in the reverse of a topological sort.
+postOrd :: (Graph g a) => g a -> [a]
+postOrd = reverse.topoSort
 
 -- A list of nodes reachable in DFS order from a given node.
 reachableDFS :: (Graph g a) => g a -> a -> [a]
@@ -246,17 +246,22 @@ cfs g s = Prelude.map fst (dijkstra (weight g) g s)
 
 --A topological sort of the graph. The order is partially specified by the condition
 -- that a vertex i precedes j whenever j is reachable from i but not vice versa.
-topologicalSort :: (Graph g a) => g a -> [a]
-topologicalSort g = reverse (postordering g (nodes g))
+topoSort :: (Graph g a) => g a -> [a]
+topoSort g = dfsR (nodes g) [] S.empty
+    where
+      newN x vSet = filter (\n -> not (S.member n vSet)) (neighbors g x)
+      dfsR [] acc _  = acc
+      dfsR (s:sx) acc vSet = case (elem s acc) of
+                               True  -> dfsR sx acc vSet
+                               False -> case (newN s vSet) of
+                                          []     -> dfsR sx (s:acc) (S.insert s vSet)
+                                          (x:xs) -> dfsR ((x:xs) ++ (s:sx)) acc (S.insert s vSet)
+
 
 
 ------------------------------------------------------------
 -- Algorithm 5: Graph Cycles
 ------------------------------------------------------------
-
--- Returns True if the graph is acyclic, False otherwise
-acyclic :: (Graph g a) => g a -> Bool
-acyclic g = bfsFold g True (nodes g) (\_ -> id) (\_ _ -> False)
 
 isTree :: (Graph g a) => g a -> Bool
 isTree = undefined --acyclic and components == 1?
@@ -303,7 +308,6 @@ components :: (Graph g a) => g a -> [g a] --since we do not have tree rep, else 
 components = undefined
 
 
-
 --The biconnected components of a graph. An undirected graph is
 -- biconnected if the deletion of any vertex leaves it connected.
 bcc :: (Graph g a) => g a -> [g a]
@@ -323,6 +327,60 @@ prim g w = prim' [n] ns []
           where
             es            = [(n1, n2, (w n1 n2)) | n1 <- cx, n2 <- (neighbors g n1), elem n2 nx]
             e@(n1, n2, d) = minimumBy (comparing (\(_,_,d) -> d)) es
+
+
+------------------------------------------------------------
+--  Unit Tests
+------------------------------------------------------------
+
+graph1 :: DGraph Int
+graph1 =  createFromEdges [(Edge (1,2) 1), (Edge (1,3) 1), (Edge (1,4) 1),
+                             (Edge (2,5) 1), (Edge (2,6) 1),
+                             (Edge (4,7) 1), (Edge (4,8) 1),
+                             (Edge (5,9) 1), (Edge (5,10) 1),
+                             (Edge (7,11) 1), (Edge (7,12) 1)]
+
+graph2 :: DGraph Int
+graph2 =  createFromEdges [(Edge (5,7) 1), (Edge (7,3) 1), (Edge (3,11) 1),
+                           (Edge (11,8) 1), (Edge (8,2) 1),
+                           (Edge (2, 9) 1),(Edge (2,10) 1)]
+
+cyclicG :: DGraph Int
+cyclicG =  createFromEdges [(Edge (1,2) 1), (Edge (2,3) 1), (Edge (3,4) 1),
+                           (Edge (4,5) 1), (Edge (5,6) 1),
+                           (Edge (6,2) 1)]
+
+-- bipartiteG ::
+
+bfsT :: Test
+bfsT = "BFS" ~: TestList [
+             bfs graph1 [1] ~?= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+             bfs graph1 [1, 5, 7] ~?= [1, 5, 7, 2, 3, 4, 9, 10, 11, 12, 6, 8]
+          ]
+
+dfsT :: Test
+dfsT = "BFS" ~: TestList [
+             dfs graph1 [1] ~?= [1, 2, 5, 9, 10, 6, 3, 4, 7, 11, 12, 8],
+             dfs graph1 [5, 7, 1] ~?= [5, 9, 10, 7, 11, 12, 1, 2, 6, 3, 4, 8]
+          ]
+
+reachableT :: Test
+reachableT = "Reachable" ~: TestList [
+             reachableBFS graph1 1 ~?= [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+             reachableBFS graph1 5 ~?= [5, 9, 10],
+             reachableDFS graph1 1 ~?= [1, 2, 5, 9, 10, 6, 3, 4, 7, 11, 12, 8],
+             reachableDFS graph1 5 ~?= [5, 9, 10]
+          ]
+
+topoSortT :: Test
+topoSortT = "Topologcal Sort" ~: TestList [
+             topoSort graph2 ~?= [5, 7, 3, 11, 8, 2, 10, 9]]
+
+
+tests :: IO ()
+tests = do
+          runTestTT $ TestList [bfsT, dfsT, reachableT, topoSortT]
+          return ()
 
 
 main :: IO ()

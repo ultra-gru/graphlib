@@ -27,6 +27,7 @@ dependencies:
 - megaparsec
 - text
 - hxt
+- HUnit
 
 library:
   source-dirs: src
