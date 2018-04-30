@@ -53,6 +53,7 @@ class (Eq a, Ord a) => Graph g a where
 
     weight :: g a -> a -> a -> Double
 
+
 type NodeIndex a   = B.Bimap Vertex a
 type AdjacencyList = M.Map Vertex (S.Set (Vertex, Weight))
 
@@ -313,7 +314,7 @@ prim g w = prim' [n] ns []
       (n:ns) = nodes g
       --prim' :: [a] -> [a] -> [(a,a,b)] -> [(a,a,b)]
       prim' cx [] mst = mst
-      prim' cx nx mst = prim' (n2:nx) (delete n2 nx) (e:mst)
+      prim' cx nx mst = prim' (n2:cx) (delete n2 nx) (e:mst)
           where
             es            = [(n1, n2, (w n1 n2)) | n1 <- cx, n2 <- (neighbors g n1), elem n2 nx]
             e@(n1, n2, d) = minimumBy (comparing (\(_,_,d) -> d)) es
@@ -336,8 +337,8 @@ graph2 =  createFromEdges [(Edge (5,7) 1), (Edge (7,3) 1), (Edge (3,11) 1),
                            (Edge (2, 9) 1),(Edge (2,10) 1)]
 
 cyclicG :: DGraph Int
-cyclicG =  createFromEdges [(Edge (1,2) 1), (Edge (2,3) 1), (Edge (3,4) 1),
-                           (Edge (4,5) 1), (Edge (5,6) 1),
+cyclicG =  createFromEdges [(Edge (1,2) 1), (Edge (2,3) 4), (Edge (3,4) 3),
+                           (Edge (4,5) 2), (Edge (5,6) 1), (Edge (2,5) 1),
                            (Edge (6,2) 1)]
 
 -- bipartiteG ::
@@ -366,10 +367,15 @@ topoSortT :: Test
 topoSortT = "Topologcal Sort" ~: TestList [
              topoSort graph2 ~?= [5, 7, 3, 11, 8, 2, 10, 9]]
 
+dijkstraT :: Test
+dijkstraT = "dijkstra" ~: TestList [
+             dijkstra (weight cyclicG) cyclicG 2 ~?= [(2,0.0),(5,1.0),(6,2.0),(3,4.0),(4,7.0),(1,1/0)]
+             ]
+
 
 tests :: IO ()
 tests = do
-          runTestTT $ TestList [bfsT, dfsT, reachableT, topoSortT]
+          runTestTT $ TestList [bfsT, dfsT, reachableT, topoSortT, dijkstraT]
           return ()
 
 
