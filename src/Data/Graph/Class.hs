@@ -30,7 +30,6 @@ data Edge a = Edge (a,a) Weight
 class (Eq a, Ord a) => Graph g a where
     empty :: g a
 
-    --TODO: vertex, node, vertices functions to be removed
     vertex :: g a -> a -> Vertex
     node :: g a -> Vertex -> a
     vertices :: g a -> [Vertex]
@@ -51,8 +50,8 @@ class (Eq a, Ord a) => Graph g a where
     singleton :: a -> g a
     map :: (Eq b, Ord b) => (a -> b) -> g a -> g b
     transpose :: g a -> g a
-    --TODO: Implement weight method in DGraph
-    weight :: {-(Num b) => -}g a -> a -> a -> Double
+
+    weight :: g a -> a -> a -> Double
 
 type NodeIndex a   = B.Bimap Vertex a
 type AdjacencyList = M.Map Vertex (S.Set (Vertex, Weight))
@@ -117,22 +116,13 @@ instance (Eq a, Ord a) => Graph DGraph a where
         where
         a' = foldr (\(Edge (src, dest) w) m -> M.insertWith S.union (n B.!> dest) (S.singleton ((n B.!> src), w)) m) M.empty (edges g)
 
-    {-weight g@(DGraph n v a) s d = case M.lookup s a of
-                                    Nothing -> 1/0
-                                    Just sv -> w
-                                        where
-                                        (_, w) = head (S.toList (S.filter f sv))
-                                        f (d', w) = case (B.lookupR d' n) of
-                                                        Nothing -> 1/0
-                                                        Just dv -> dv == d-}
-
     weight g@(DGraph n v a) s d = w
             where
             w = case (B.lookupR s n,  B.lookupR d n) of
                         (Just src', Just dest') -> case M.lookup src' a of
-                                                      Nothing -> 99999999
+                                                      Nothing -> 1/0
                                                       Just sv -> snd (head (S.toList (S.filter (\(d', w) -> dest' == d') sv)))
-                        _ -> 99999999
+                        _ -> 1/0
 
 
 -------------------------------------------------------------------------
